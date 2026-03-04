@@ -109,3 +109,7 @@ https://udithasa.github.io/cable-cut-helper/
 ## Author
 
 Uditha
+
+## License
+
+MIT License
