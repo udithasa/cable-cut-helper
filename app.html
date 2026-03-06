@@ -1,1 +1,893 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cable Cut Helper (Primal) — White</title>
 
+  <style>
+    :root{
+      --bg:#ffffff;
+      --panel:#f7f7f7;
+      --ink:#000000;
+      --muted:#444444;
+      --line:#000000;
+      --danger:#b00020;
+    }
+    *{ box-sizing:border-box; font-family: Arial, Helvetica, sans-serif; }
+    body{ margin:0; background:var(--bg); color:var(--ink); }
+    .wrap{ max-width:1100px; margin:0 auto; padding:14px; display:grid; gap:12px; }
+    .card{
+      background:var(--panel);
+      border:2px solid var(--line);
+      border-radius:16px;
+      padding:12px;
+    }
+    .row{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .row > *{ flex:1; min-width:180px; }
+    .title{ font-size:18px; font-weight:700; margin:0 0 8px 0; }
+    .sub{ color:var(--muted); font-size:12px; margin:6px 0 0 0; }
+    label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+
+    input, select{
+      width:100%;
+      padding:12px 12px;
+      border-radius:12px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:var(--ink);
+      font-size:16px;
+      outline:none;
+    }
+    input:focus, select:focus{ box-shadow: 0 0 0 2px rgba(0,0,0,0.08); }
+
+    .pill{
+      display:inline-flex; align-items:center; gap:10px;
+      border:2px solid var(--line);
+      border-radius:999px;
+      padding:8px 12px;
+      background:#fff;
+      font-size:14px;
+      white-space:nowrap;
+    }
+    .bigNumber{ font-size:24px; font-weight:800; letter-spacing:0.2px; }
+    .warn{ color:var(--danger); font-weight:800; }
+    .hint{ color:var(--muted); font-size:12px; }
+    .kbdTip{ color:var(--muted); font-size:12px; margin-top:6px; }
+
+    .btn{
+      padding:10px 16px;
+      border-radius:12px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:var(--ink);
+      cursor:pointer;
+      font-size:14px;
+      font-weight:700;
+    }
+    .btn:active{ transform: translateY(1px); }
+
+    .cuts{
+      max-height: 55vh;
+      overflow:auto;
+      padding-right:6px;
+      background:#fff;
+      border:2px solid var(--line);
+      border-radius:14px;
+      padding:10px;
+    }
+    .cutCard{
+      background:#fff;
+      border:2px solid var(--line);
+      border-radius:14px;
+      padding:10px 12px;
+      margin-bottom:10px;
+    }
+    .cutTop{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+    .cutNo{ font-weight:900; font-size:14px; color:var(--muted); }
+    .cutR{ font-weight:900; font-size:24px; }
+    .cutMeta{ margin-top:4px; font-size:13px; color:var(--muted); }
+    .cutMeta strong{ color:var(--ink); }
+    .mini{
+      margin-top:10px;
+      background:#fff;
+      border:2px solid var(--line);
+      border-radius:12px;
+      padding:8px;
+    }
+    .svgBtn{ cursor:pointer; user-select:none; }
+    .badge{
+      display:inline-block;
+      padding:4px 8px;
+      border:2px solid var(--line);
+      border-radius:999px;
+      font-size:12px;
+      color:var(--muted);
+      background:#fff;
+      margin-left:8px;
+      font-weight:700;
+    }
+    .separator{ height:2px; background:var(--line); margin:10px 0; }
+
+    /* Job details one-line strip */
+    .jobStrip{ display:none; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+    .jobStrip .field{ min-width:180px; flex:1; }
+    .toggleRow{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+
+    /* e picker modal */
+    .modalBackdrop{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,0.35);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:9999;
+    }
+    .modal{
+      width:min(520px, 100%);
+      background:#fff;
+      border:2px solid var(--line);
+      border-radius:16px;
+      padding:14px;
+    }
+    .modal h3{ margin:0 0 10px 0; font-size:16px; }
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap:10px;
+    }
+    .pickBtn{
+      padding:12px 10px;
+      border-radius:12px;
+      border:2px solid var(--line);
+      background:#fff;
+      color:var(--ink);
+      font-weight:900;
+      cursor:pointer;
+      font-size:16px;
+    }
+    .pickBtn:hover{ box-shadow: 0 0 0 2px rgba(0,0,0,0.08); }
+    .modalActions{ margin-top:12px; display:flex; gap:10px; justify-content:flex-end; }
+
+    /* PRINT: only printArea should show */
+    @media print{
+      body{ background:#fff !important; color:#000 !important; }
+      .wrap{ max-width:none; padding:0; }
+      .card{ border:1px solid #000; border-radius:0; background:#fff !important; }
+
+      /* Hide normal UI */
+      #startSvg, .kbdTip, #cutsList, #controlsRow, #jobToggleRow, #jobStrip, #insufficientBanner { display:none !important; }
+
+      /* Show only print area */
+      #printArea{ display:block !important; }
+
+      /* Print formatting */
+      .printTitle{ font-size:16px; font-weight:900; margin:0 0 8px 0; }
+      .printMeta{ font-size:12px; margin:0 0 8px 0; }
+      table{ width:100%; border-collapse:collapse; font-size:12px; }
+      th, td{ border:1px solid #000; padding:6px; vertical-align:top; }
+      th{ font-weight:900; background:#f2f2f2; }
+      .printCutCard{ border:1px solid #000; padding:8px; margin:0 0 8px 0; page-break-inside:avoid; }
+      .printMini{ border:1px solid #000; padding:6px; margin-top:6px; }
+      .printFooter{ margin-top:10px; font-size:11px; color:#000; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+      .printWarn{ border:1px solid #000; padding:8px; margin:0 0 10px 0; font-size:12px; }
+      .printStartBox{ border:1px solid #000; padding:8px; margin:0 0 10px 0; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <!-- START POINT + JOB INPUTS -->
+    <div class="card">
+      <div class="row" style="align-items:flex-start;">
+        <div style="flex:2; min-width:320px;">
+          <p class="title">Start Point (click values inside the drawing)</p>
+
+          <svg id="startSvg" viewBox="0 0 900 210" width="100%" height="210"
+               style="display:block; border-radius:14px; background:#fff; border:2px solid #000;">
+            <text x="22" y="34" fill="#444" font-size="16">END (free end)</text>
+            <text x="740" y="34" fill="#444" font-size="16">toward spool →</text>
+
+            <!-- E mark fixed -->
+            <line id="emark" x1="640" y1="76" x2="640" y2="144" stroke="#000" stroke-width="6" stroke-linecap="round"/>
+
+            <!-- Dot = actual end position (S) -->
+            <circle id="sDot" cx="520" cy="110" r="12" fill="#000"/>
+
+            <!-- Cable line starts at dot (NO line before dot) -->
+            <line id="cableLine" x1="520" y1="110" x2="860" y2="110" stroke="#000" stroke-width="6" stroke-linecap="round"/>
+
+            <!-- e bracket -->
+            <line id="ebracket" x1="520" y1="158" x2="640" y2="158" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+            <line id="ebrL" x1="520" y1="150" x2="520" y2="166" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+            <line id="ebrR" x1="640" y1="150" x2="640" y2="166" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+
+            <!-- Clickable E box -->
+            <g class="svgBtn" id="btnE">
+              <rect x="675" y="68" rx="12" ry="12" width="190" height="44" fill="#fff" stroke="#000" stroke-width="2"/>
+              <text id="txtE" x="690" y="97" fill="#000" font-size="20" font-weight="900">E = ___ m</text>
+            </g>
+
+            <!-- Clickable e box -->
+            <g class="svgBtn" id="btnEoff">
+              <rect x="675" y="126" rx="12" ry="12" width="190" height="44" fill="#fff" stroke="#000" stroke-width="2"/>
+              <text id="txte" x="690" y="155" fill="#000" font-size="20" font-weight="900">e = 0.0 m</text>
+            </g>
+
+            <!-- S output -->
+            <text x="40" y="198" fill="#444" font-size="16">Start reading</text>
+            <text id="txtS" x="160" y="200" fill="#000" font-size="34" font-weight="900">S = —</text>
+
+            <text x="40" y="70" fill="#444" font-size="14">Dot ● is the cable end. It is e meters before the full mark E.</text>
+
+            <!-- e label -->
+            <text id="txteLabel" x="520" y="186" fill="#000" font-size="16" font-weight="900">e</text>
+          </svg>
+
+          <div class="kbdTip">
+            Tip: Click <strong>E</strong> or <strong>e</strong> inside the drawing to edit.
+            <span class="badge">Alt+E</span><span class="badge">Alt+O</span>
+          </div>
+        </div>
+
+        <div style="flex:1; min-width:240px;">
+          <p class="title">Job Inputs</p>
+
+          <div class="row" style="gap:10px;">
+            <div>
+              <label>Total length (y) — 1 decimal</label>
+              <input id="inY" type="number" step="0.1" min="0.1" placeholder="e.g., 101.1" />
+            </div>
+            <div>
+              <label>Number of cuts (n)</label>
+              <input id="inN" type="number" step="1" min="1" placeholder="e.g., 3" />
+            </div>
+          </div>
+
+          <div class="row" style="gap:10px; margin-top:10px;">
+            <div>
+              <label>Direction (based on print + winding)</label>
+              <select id="inDir">
+                <option value="asc">Ascending (numbers increase toward spool)</option>
+                <option value="desc">Descending (numbers decrease toward spool)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <div class="pill">
+              <span class="hint">Cut length</span>
+              <span id="outX" class="bigNumber">x = —</span>
+            </div>
+
+            <button class="btn" id="btnClear" type="button">Clear all</button>
+          </div>
+
+          <div id="outWarn" class="warn" style="display:none; margin-top:10px;"></div>
+          <div class="sub">Output uses floor method: <strong>Between full marks + offset from each</strong>.</div>
+
+          <div id="insufficientBanner" style="display:none; margin-top:10px;">
+            <div class="warn" id="insufficientText"></div>
+          </div>
+
+          <div class="separator"></div>
+
+          <div class="toggleRow" id="jobToggleRow">
+            <label style="margin:0; display:flex; gap:10px; align-items:center; cursor:pointer;">
+              <input id="showJob" type="checkbox" style="width:auto; transform:scale(1.2);" />
+              <span style="color:var(--muted); font-size:13px;">Show optional job details</span>
+            </label>
+          </div>
+
+          <div class="jobStrip" id="jobStrip">
+            <div class="field">
+              <label>Date (auto)</label>
+              <input id="jobDate" type="date" />
+            </div>
+            <div class="field">
+              <label>Operator name</label>
+              <input id="jobOperator" type="text" placeholder="optional" />
+            </div>
+            <div class="field">
+              <label>Job ID</label>
+              <input id="jobId" type="text" placeholder="optional" />
+            </div>
+            <div class="field">
+              <label>Cable code</label>
+              <input id="jobCable" type="text" placeholder="optional" />
+            </div>
+            <div class="field">
+              <label>Tracking #</label>
+              <input id="jobTrack" type="text" placeholder="optional" />
+            </div>
+          </div>
+
+          <div class="sub" style="margin-top:8px;">(Job details are optional — leave blank during testing.)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OUTPUT -->
+    <div class="card">
+      <p class="title">Cuts Output (Cut 1 → Cut n)</p>
+
+      <div id="controlsRow" style="margin-bottom:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input id="jumpCut" type="number" min="1" step="1" placeholder="Jump to cut #" style="max-width:180px;" />
+        <button class="btn" type="button" id="btnGo">Go</button>
+
+        <select id="printMode" style="max-width:240px;">
+          <option value="compact">Print: Compact (table)</option>
+          <option value="detailed">Print: Detailed (cards)</option>
+        </select>
+
+        <button class="btn" type="button" id="btnPreview">Preview print</button>
+        <button class="btn" type="button" id="btnPrint">Print now</button>
+      </div>
+
+      <div id="printArea" style="display:none;"></div>
+      <div class="cuts" id="cutsList"></div>
+    </div>
+
+  </div>
+
+  <!-- e picker modal -->
+  <div class="modalBackdrop" id="eModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Offset picker">
+      <h3>Select offset <span class="badge">e</span> (0.0 to 0.9)</h3>
+      <div class="grid" id="eGrid"></div>
+      <div class="modalActions">
+        <button class="btn" type="button" id="btnECancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ---------- Helpers ----------
+  function round1(x){ return Math.round(x * 10) / 10; }
+  function clamp(v, lo, hi){ return Math.min(hi, Math.max(lo, v)); }
+  function isWholeMeter(x){ return Math.abs(x - Math.round(x)) < 1e-9; }
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function nowStamp(){
+    const d = new Date();
+    return `${pad2(d.getDate())}-${pad2(d.getMonth()+1)}-${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+  function escapeHtml(str){
+    return String(str)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#39;");
+  }
+
+  const VERSION = "v1.0";
+
+  // ---------- State ----------
+  const state = {
+    E: null,   // integer full mark
+    e: 0.0     // 0.0..0.9
+  };
+
+  // ---------- Elements ----------
+  const txtE = document.getElementById('txtE');
+  const txte = document.getElementById('txte');
+  const txtS = document.getElementById('txtS');
+  const txteLabel = document.getElementById('txteLabel');
+
+  const sDot = document.getElementById('sDot');
+  const cableLine = document.getElementById('cableLine');
+  const ebracket = document.getElementById('ebracket');
+  const ebrL = document.getElementById('ebrL');
+  const ebrR = document.getElementById('ebrR');
+
+  const inY = document.getElementById('inY');
+  const inN = document.getElementById('inN');
+  const inDir = document.getElementById('inDir');
+  const outX = document.getElementById('outX');
+  const outWarn = document.getElementById('outWarn');
+
+  const insufficientBanner = document.getElementById('insufficientBanner');
+  const insufficientText = document.getElementById('insufficientText');
+
+  const cutsList = document.getElementById('cutsList');
+
+  const btnClear = document.getElementById('btnClear');
+  const btnGo = document.getElementById('btnGo');
+  const btnPreview = document.getElementById('btnPreview');
+  const btnPrint = document.getElementById('btnPrint');
+  const jumpCut = document.getElementById('jumpCut');
+
+  const showJob = document.getElementById('showJob');
+  const jobStrip = document.getElementById('jobStrip');
+  const jobDate = document.getElementById('jobDate');
+  const jobOperator = document.getElementById('jobOperator');
+  const jobId = document.getElementById('jobId');
+  const jobCable = document.getElementById('jobCable');
+  const jobTrack = document.getElementById('jobTrack');
+
+  const printMode = document.getElementById('printMode');
+  const printArea = document.getElementById('printArea');
+
+  // e modal
+  const eModal = document.getElementById('eModal');
+  const eGrid = document.getElementById('eGrid');
+  const btnECancel = document.getElementById('btnECancel');
+
+  // ---------- Init job date ----------
+  (function initDate(){
+    const d = new Date();
+    const iso = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+    jobDate.value = iso;
+  })();
+
+  // ---------- Build e picker ----------
+  (function buildEPicker(){
+    const vals = [];
+    for(let i=0;i<=9;i++) vals.push((i/10).toFixed(1));
+    eGrid.innerHTML = vals.map(v => `<button class="pickBtn" type="button" data-e="${v}">${v}</button>`).join('');
+    eGrid.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button[data-e]');
+      if(!btn) return;
+      const v = Number(btn.getAttribute('data-e'));
+      state.e = v;
+      closeEModal();
+      renderAll();
+    });
+  })();
+
+  function openEModal(){ eModal.style.display = "flex"; }
+  function closeEModal(){ eModal.style.display = "none"; }
+  btnECancel.addEventListener('click', closeEModal);
+  eModal.addEventListener('click', (ev) => { if(ev.target === eModal) closeEModal(); });
+
+  // ---------- Clickable SVG ----------
+  document.getElementById('btnE').addEventListener('click', () => editE());
+  document.getElementById('btnEoff').addEventListener('click', () => openEModal());
+
+  function editE(){
+    const raw = prompt("Enter E (full meter mark printed on cable). Example: 127", state.E === null ? "" : String(state.E));
+    if(raw === null) return;
+    const v = Number(raw);
+    if(!Number.isFinite(v)) return alert("Invalid number.");
+    const iv = Math.trunc(v);
+    if(iv <= 0) return alert("E must be a positive whole number.");
+    state.E = iv;
+    renderAll();
+  }
+
+  // ---------- Job details toggle ----------
+  showJob.addEventListener('change', () => {
+    jobStrip.style.display = showJob.checked ? "flex" : "none";
+  });
+
+  // ---------- Clear all ----------
+  btnClear.addEventListener('click', () => {
+    state.E = null;
+    state.e = 0.0;
+
+    inY.value = "";
+    inN.value = "";
+    inDir.value = "asc";
+
+    jumpCut.value = "";
+
+    jobOperator.value = "";
+    jobId.value = "";
+    jobCable.value = "";
+    jobTrack.value = "";
+
+    showJob.checked = false;
+    jobStrip.style.display = "none";
+
+    renderAll();
+    alert("Cleared. Enter new job details.");
+  });
+
+  // ---------- Inputs update ----------
+  inY.addEventListener('input', renderAll);
+  inN.addEventListener('input', renderAll);
+  inDir.addEventListener('change', renderAll);
+
+  // Search input: never allow negative or 0
+  jumpCut.addEventListener('input', () => {
+    if(jumpCut.value === "") return;
+    const v = Math.trunc(Number(jumpCut.value));
+    if(!Number.isFinite(v) || v < 1) jumpCut.value = "1";
+    else jumpCut.value = String(v);
+  });
+
+  // Keyboard flow: Enter moves through y -> n -> dir -> jump
+  function handleEnterFlow(ev){
+    if(ev.key !== "Enter") return;
+    ev.preventDefault();
+    const order = [inY, inN, inDir, jumpCut];
+    const idx = order.indexOf(ev.target);
+    if(idx >= 0 && idx < order.length-1){
+      order[idx+1].focus();
+    } else {
+      renderAll();
+      document.querySelector('.cuts')?.scrollTo({top:0, behavior:"smooth"});
+    }
+  }
+  [inY, inN, inDir, jumpCut].forEach(el => el.addEventListener('keydown', handleEnterFlow));
+
+  // Alt shortcuts: Alt+E edit E, Alt+O open offset picker
+  window.addEventListener('keydown', (ev) => {
+    if(!ev.altKey) return;
+    const k = ev.key.toLowerCase();
+    if(k === 'e'){ ev.preventDefault(); editE(); }
+    if(k === 'o'){ ev.preventDefault(); openEModal(); }
+  });
+
+  // ---------- Computation ----------
+  function compute(){
+    const E = state.E; // integer or null
+    const e = clamp(round1(state.e), 0, 0.9);
+    const S = (E === null) ? null : round1(E - e);
+
+    const yRaw = Number(inY.value);
+    const nRaw = Number(inN.value);
+
+    const y = Number.isFinite(yRaw) ? round1(yRaw) : NaN;
+    const n = Number.isFinite(nRaw) ? Math.trunc(nRaw) : NaN;
+
+    const dir = inDir.value; // asc|desc
+
+    const issues = [];
+    if(E === null) issues.push("Enter E (full meter mark) in the drawing.");
+    if(!Number.isFinite(y) || y <= 0) issues.push("Enter a valid total length (y).");
+    if(!Number.isFinite(n) || n < 1) issues.push("Enter a valid number of cuts (n).");
+
+    let x = NaN;
+    if(issues.length === 0){
+      x = round1(y / n);
+      if(x < 0.1) issues.push("Cut length is below measurable limit (0.1 m).");
+    }
+
+    return {E,e,S,y,n,dir,x,issues};
+  }
+
+  function renderStartDrawing(E, e, S){
+    txtE.textContent = (E === null) ? "E = ___ m" : `E = ${E} m`;
+    txte.textContent = `e = ${e.toFixed(1)} m`;
+    txtS.textContent = (S === null) ? "S = —" : `S = ${S.toFixed(1)} m`;
+
+    const E_X = 640;
+    const maxSpanPx = 220;
+    const dotX = E_X - (e/0.9) * maxSpanPx;
+
+    sDot.setAttribute('cx', dotX);
+    cableLine.setAttribute('x1', dotX);
+
+    ebracket.setAttribute('x1', dotX);
+    ebracket.setAttribute('x2', E_X);
+    ebrL.setAttribute('x1', dotX); ebrL.setAttribute('x2', dotX);
+    ebrR.setAttribute('x1', E_X);  ebrR.setAttribute('x2', E_X);
+
+    const mid = (dotX + E_X) / 2;
+    txteLabel.setAttribute('x', mid - 6);
+  }
+
+  // Solid triangle pointer marker (▼) + vertical cut line
+  function makeMiniBar(A, B, fromA, isExact){
+    const w = 520, h = 72, pad = 18;
+    const x0 = pad, x1 = w - pad;
+    const yLine = 44;
+
+    const pos = isExact ? 0 : clamp(fromA, 0, 1);
+    const mx = x0 + (x1 - x0) * pos;
+
+    // triangle pointer above the line (solid)
+    const triTopY = yLine - 22;
+    const triBaseY = yLine - 10;
+    const triHalfW = 8;
+    const triPoints = `${mx},${triBaseY} ${mx-triHalfW},${triTopY} ${mx+triHalfW},${triTopY}`;
+
+    return `
+      <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" aria-label="1 meter segment">
+        <text x="${x0}" y="18" fill="#444" font-size="14">${A}m</text>
+        <text x="${x1-34}" y="18" fill="#444" font-size="14">${B}m</text>
+
+        <line x1="${x0}" y1="${yLine}" x2="${x1}" y2="${yLine}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
+        <line x1="${x0}" y1="${yLine-14}" x2="${x0}" y2="${yLine+14}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
+        <line x1="${x1}" y1="${yLine-14}" x2="${x1}" y2="${yLine+14}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
+
+        <polygon points="${triPoints}" fill="#000"/>
+        <line x1="${mx}" y1="${yLine-16}" x2="${mx}" y2="${yLine+16}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
+      </svg>
+    `;
+  }
+
+  function buildCutData(){
+    const data = compute();
+    if(data.issues.length) return { ok:false, msg:data.issues[0], data };
+
+    const cuts = [];
+    let enoughCuts = data.n;
+    let insufficient = false;
+
+    for(let k=1; k<=data.n; k++){
+      const Dk = round1(k * data.x);
+      const R = round1(data.dir === "asc" ? (data.S + Dk) : (data.S - Dk));
+
+      // Stop on negative when descending (no negative cuts generated)
+      if(data.dir === "desc" && R < 0){
+        insufficient = true;
+        enoughCuts = k - 1;
+        break;
+      }
+
+      if(isWholeMeter(R)){
+        const A = Math.round(R);
+        cuts.push({
+          k, R: `${A}.0`,
+          exact: true,
+          betweenA: A, betweenB: A+1,
+          fromA: 0.0, fromB: 1.0
+        });
+      } else {
+        const A = Math.floor(R);
+        const B = A + 1;
+        const fromA = round1(R - A);
+        const fromB = round1(B - R);
+        cuts.push({
+          k, R: R.toFixed(1),
+          exact: false,
+          betweenA: A, betweenB: B,
+          fromA, fromB
+        });
+      }
+    }
+
+    return {
+      ok:true,
+      data,
+      cuts,
+      insufficient,
+      enoughCuts,
+      needFrom: insufficient ? (enoughCuts + 1) : null,
+      needTo: insufficient ? data.n : null
+    };
+  }
+
+  function renderCutsUI(res){
+    cutsList.innerHTML = "";
+    insufficientBanner.style.display = "none";
+    insufficientText.textContent = "";
+
+    if(!res.ok) return;
+
+    const { cuts, insufficient, enoughCuts, needFrom, needTo } = res;
+
+    const frag = document.createDocumentFragment();
+    cuts.forEach(c => {
+      const card = document.createElement('div');
+      card.className = "cutCard";
+
+      if(c.exact){
+        card.innerHTML = `
+          <div class="cutTop">
+            <div>
+              <div class="cutNo">CUT ${c.k}</div>
+              <div class="cutR">${c.R} m</div>
+              <div class="cutMeta"><strong>Exactly at ${c.betweenA} m</strong></div>
+            </div>
+          </div>
+          <div class="mini">${makeMiniBar(c.betweenA, c.betweenB, 0, true)}</div>
+        `;
+      } else {
+        card.innerHTML = `
+          <div class="cutTop">
+            <div>
+              <div class="cutNo">CUT ${c.k}</div>
+              <div class="cutR">${c.R} m</div>
+              <div class="cutMeta">Between <strong>${c.betweenA} m</strong> and <strong>${c.betweenB} m</strong></div>
+              <div class="cutMeta"><strong>${c.fromA.toFixed(1)} m</strong> from ${c.betweenA} &nbsp; | &nbsp; <strong>${c.fromB.toFixed(1)} m</strong> from ${c.betweenB}</div>
+            </div>
+          </div>
+          <div class="mini">${makeMiniBar(c.betweenA, c.betweenB, c.fromA, false)}</div>
+        `;
+      }
+
+      frag.appendChild(card);
+    });
+    cutsList.appendChild(frag);
+
+    if(insufficient){
+      insufficientBanner.style.display = "block";
+      insufficientText.textContent = `Reel 1 only enough for Cut 1 → Cut ${enoughCuts}. Need another cable for Cut ${needFrom} → Cut ${needTo}.`;
+    }
+  }
+
+  // ---------- Jump to cut ----------
+  function jumpToCutFn(){
+    const num = Math.trunc(Number(jumpCut.value));
+    if(!Number.isFinite(num) || num < 1) return;
+
+    const card = document.querySelectorAll('.cutCard')[num-1];
+    if(card){
+      card.scrollIntoView({ behavior:"smooth", block:"start" });
+      const old = card.style.borderColor;
+      card.style.borderColor = "#000";
+      setTimeout(() => { card.style.borderColor = old || "#000"; }, 900);
+    }
+  }
+  btnGo.addEventListener('click', jumpToCutFn);
+
+  // ---------- Print header helpers ----------
+  function getJobFields(){
+    const fields = [];
+    if(jobDate.value) fields.push({k:"Date", v: jobDate.value});
+    if(jobOperator.value.trim()) fields.push({k:"Operator", v: jobOperator.value.trim()});
+    if(jobId.value.trim()) fields.push({k:"Job ID", v: jobId.value.trim()});
+    if(jobCable.value.trim()) fields.push({k:"Cable code", v: jobCable.value.trim()});
+    if(jobTrack.value.trim()) fields.push({k:"Tracking", v: jobTrack.value.trim()});
+    return fields;
+  }
+
+  function buildPrintStartSvg(E, e, S){
+    // Small print SVG showing the offset/start-point drawing
+    // Visual-only: E mark fixed, dot shifts based on e.
+    const E_X = 440;
+    const maxSpanPx = 150;
+    const dotX = E_X - (e/0.9) * maxSpanPx;
+
+    return `
+      <div class="printStartBox">
+        <div style="font-weight:900; margin-bottom:6px;">Start point</div>
+        <div style="font-size:12px; margin-bottom:8px;">
+          E = ${E} m, e = ${e.toFixed(1)} m, Start reading S = ${S.toFixed(1)} m
+        </div>
+        <svg viewBox="0 0 620 120" width="100%" height="120" style="display:block;">
+          <text x="10" y="18" fill="#444" font-size="12">END</text>
+          <text x="520" y="18" fill="#444" font-size="12">toward spool →</text>
+
+          <line x1="${E_X}" y1="36" x2="${E_X}" y2="94" stroke="#000" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="${dotX}" cy="65" r="9" fill="#000"/>
+          <line x1="${dotX}" y1="65" x2="590" y2="65" stroke="#000" stroke-width="5" stroke-linecap="round"/>
+
+          <line x1="${dotX}" y1="102" x2="${E_X}" y2="102" stroke="#000" stroke-width="2"/>
+          <line x1="${dotX}" y1="96" x2="${dotX}" y2="108" stroke="#000" stroke-width="2"/>
+          <line x1="${E_X}" y1="96" x2="${E_X}" y2="108" stroke="#000" stroke-width="2"/>
+          <text x="${(dotX+E_X)/2 - 6}" y="118" fill="#000" font-size="12" font-weight="900">e</text>
+        </svg>
+      </div>
+    `;
+  }
+
+  function buildPrintHTML(res){
+    const mode = printMode.value; // compact|detailed
+    const { data, cuts, insufficient, enoughCuts, needFrom, needTo } = res;
+
+    const dirText = data.dir === "asc"
+      ? "Ascending (numbers increase toward spool)"
+      : "Descending (numbers decrease toward spool)";
+
+    const jobFields = getJobFields();
+    const jobLine = jobFields.length
+      ? jobFields.map(f => `<strong>${escapeHtml(f.k)}:</strong> ${escapeHtml(f.v)}`).join(" &nbsp; | &nbsp; ")
+      : "";
+
+    const headerHTML = `
+      <p class="printTitle">Cable Cut Plan</p>
+      ${jobLine ? `<p class="printMeta">${jobLine}</p>` : ``}
+      ${buildPrintStartSvg(data.E, data.e, data.S)}
+      <p class="printMeta">
+        Total y = ${data.y.toFixed(1)} m, Cuts n = ${data.n}, Cut length x = ${data.x.toFixed(1)} m<br/>
+        Direction: ${dirText}<br/>
+        Note: Measurements rounded to nearest 0.1 m
+      </p>
+      ${insufficient ? `<div class="printWarn"><strong>NOTE:</strong> Reel 1 only enough for Cut 1 → Cut ${enoughCuts}. Need another cable for Cut ${needFrom} → Cut ${needTo}.</div>` : ``}
+    `;
+
+    let bodyHTML = "";
+
+    if(mode === "compact"){
+      bodyHTML += `
+        <table>
+          <thead>
+            <tr>
+              <th style="width:60px;">Cut</th>
+              <th style="width:90px;">Reading</th>
+              <th>Between</th>
+              <th style="width:170px;">From lower</th>
+              <th style="width:170px;">From upper</th>
+              <th style="width:140px;">Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cuts.map(c => `
+              <tr>
+                <td>${c.k}</td>
+                <td>${c.R} m</td>
+                <td>${c.betweenA} m ↔ ${c.betweenB} m</td>
+                <td>${c.fromA.toFixed(1)} m from ${c.betweenA}</td>
+                <td>${c.fromB.toFixed(1)} m from ${c.betweenB}</td>
+                <td>${c.exact ? "Exact full mark" : ""}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    } else {
+      bodyHTML += cuts.map(c => {
+        const mini = `<div class="printMini">${makeMiniBar(c.betweenA, c.betweenB, c.fromA, c.exact)}</div>`;
+        return `
+          <div class="printCutCard">
+            <div><strong>CUT ${c.k}</strong></div>
+            <div style="font-size:14px; font-weight:900; margin-top:2px;">${c.R} m</div>
+            ${c.exact
+              ? `<div>Exactly at <strong>${c.betweenA} m</strong></div>`
+              : `<div>Between <strong>${c.betweenA} m</strong> and <strong>${c.betweenB} m</strong></div>
+                 <div><strong>${c.fromA.toFixed(1)} m</strong> from ${c.betweenA} &nbsp; | &nbsp;
+                      <strong>${c.fromB.toFixed(1)} m</strong> from ${c.betweenB}</div>`
+            }
+            ${mini}
+          </div>
+        `;
+      }).join("");
+    }
+
+    const footerHTML = `
+      <div class="printFooter">
+        <div>Printed on: ${nowStamp()}</div>
+        <div>Generated by: Cable Cut Helper ${VERSION}</div>
+      </div>
+    `;
+
+    return headerHTML + bodyHTML + footerHTML;
+  }
+
+  // Preview print / Print now (both open browser print dialog)
+  function previewOrPrint(){
+    const res = buildCutData();
+    if(!res.ok){
+      alert(res.msg);
+      return;
+    }
+
+    if(res.insufficient){
+      const ok = confirm(
+        `Reel 1 only enough for Cut 1 → Cut ${res.enoughCuts}.\n` +
+        `Need another cable for Cut ${res.needFrom} → Cut ${res.needTo}.\n\n` +
+        `Continue?`
+      );
+      if(!ok) return;
+    }
+
+    printArea.innerHTML = buildPrintHTML(res);
+    window.print();
+  }
+
+  btnPreview.addEventListener('click', previewOrPrint);
+  btnPrint.addEventListener('click', previewOrPrint);
+
+  // ---------- Render all ----------
+  function renderAll(){
+    const data = compute();
+    renderStartDrawing(data.E, data.e, data.S);
+
+    if(data.issues.length){
+      outWarn.style.display = "block";
+      outWarn.textContent = data.issues[0];
+      outX.textContent = "x = —";
+      cutsList.innerHTML = "";
+      insufficientBanner.style.display = "none";
+      return;
+    }
+
+    outWarn.style.display = "none";
+    outX.textContent = `x = ${data.x.toFixed(1)} m`;
+
+    const res = buildCutData();
+    renderCutsUI(res);
+  }
+
+  // Initial render
+  renderAll();
+</script>
+</body>
+</html>
