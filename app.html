@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cable Cut Helper (Primal) — White</title>
+  <title>Cable Cut Helper App — White</title>
 
   <style>
     :root{
@@ -13,6 +13,7 @@
       --muted:#444444;
       --line:#000000;
       --danger:#b00020;
+      --ok:#0a7a12;
     }
     *{ box-sizing:border-box; font-family: Arial, Helvetica, sans-serif; }
     body{ margin:0; background:var(--bg); color:var(--ink); }
@@ -52,6 +53,7 @@
     }
     .bigNumber{ font-size:24px; font-weight:800; letter-spacing:0.2px; }
     .warn{ color:var(--danger); font-weight:800; }
+    .ok{ color:var(--ok); font-weight:800; }
     .hint{ color:var(--muted); font-size:12px; }
     .kbdTip{ color:var(--muted); font-size:12px; margin-top:6px; }
 
@@ -83,6 +85,13 @@
       padding:10px 12px;
       margin-bottom:10px;
     }
+    .cutCard.done{
+      opacity:0.65;
+    }
+    .cutCard.done .cutR{
+      text-decoration: line-through;
+    }
+
     .cutTop{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
     .cutNo{ font-weight:900; font-size:14px; color:var(--muted); }
     .cutR{ font-weight:900; font-size:24px; }
@@ -109,12 +118,10 @@
     }
     .separator{ height:2px; background:var(--line); margin:10px 0; }
 
-    /* Job details one-line strip */
     .jobStrip{ display:none; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px; }
     .jobStrip .field{ min-width:180px; flex:1; }
     .toggleRow{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
 
-    /* e picker modal */
     .modalBackdrop{
       position:fixed; inset:0;
       background:rgba(0,0,0,0.35);
@@ -125,7 +132,9 @@
       z-index:9999;
     }
     .modal{
-      width:min(520px, 100%);
+      width:min(760px, 100%);
+      max-height:85vh;
+      overflow:auto;
       background:#fff;
       border:2px solid var(--line);
       border-radius:16px;
@@ -150,19 +159,58 @@
     .pickBtn:hover{ box-shadow: 0 0 0 2px rgba(0,0,0,0.08); }
     .modalActions{ margin-top:12px; display:flex; gap:10px; justify-content:flex-end; }
 
-    /* PRINT: only printArea should show */
+    .doneToggle{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-weight:800;
+      color:var(--muted);
+      user-select:none;
+    }
+
+    .historyList{
+      margin-top:10px;
+      display:grid;
+      gap:10px;
+    }
+    .historyItem{
+      border:2px solid var(--line);
+      border-radius:12px;
+      padding:10px;
+      background:#fff;
+    }
+    .historyTop{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .historySo{
+      font-size:18px;
+      font-weight:900;
+    }
+    .historyMeta{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:4px;
+    }
+
+    @media (max-width: 720px){
+      .wrap{ padding:10px; }
+      .btn{ padding:14px 16px; font-size:16px; }
+      input, select{ font-size:18px; padding:14px; }
+      .cuts{ max-height: 62vh; }
+      .bigNumber{ font-size:20px; }
+      .cutR{ font-size:22px; }
+    }
+
     @media print{
       body{ background:#fff !important; color:#000 !important; }
       .wrap{ max-width:none; padding:0; }
       .card{ border:1px solid #000; border-radius:0; background:#fff !important; }
-
-      /* Hide normal UI */
       #startSvg, .kbdTip, #cutsList, #controlsRow, #jobToggleRow, #jobStrip, #insufficientBanner { display:none !important; }
-
-      /* Show only print area */
       #printArea{ display:block !important; }
-
-      /* Print formatting */
       .printTitle{ font-size:16px; font-weight:900; margin:0 0 8px 0; }
       .printMeta{ font-size:12px; margin:0 0 8px 0; }
       table{ width:100%; border-collapse:collapse; font-size:12px; }
@@ -180,7 +228,6 @@
 <body>
   <div class="wrap">
 
-    <!-- START POINT + JOB INPUTS -->
     <div class="card">
       <div class="row" style="align-items:flex-start;">
         <div style="flex:2; min-width:320px;">
@@ -191,39 +238,27 @@
             <text x="22" y="34" fill="#444" font-size="16">END (free end)</text>
             <text x="740" y="34" fill="#444" font-size="16">toward spool →</text>
 
-            <!-- E mark fixed -->
             <line id="emark" x1="640" y1="76" x2="640" y2="144" stroke="#000" stroke-width="6" stroke-linecap="round"/>
-
-            <!-- Dot = actual end position (S) -->
             <circle id="sDot" cx="520" cy="110" r="12" fill="#000"/>
-
-            <!-- Cable line starts at dot (NO line before dot) -->
             <line id="cableLine" x1="520" y1="110" x2="860" y2="110" stroke="#000" stroke-width="6" stroke-linecap="round"/>
 
-            <!-- e bracket -->
             <line id="ebracket" x1="520" y1="158" x2="640" y2="158" stroke="#000" stroke-width="3" stroke-linecap="round"/>
             <line id="ebrL" x1="520" y1="150" x2="520" y2="166" stroke="#000" stroke-width="3" stroke-linecap="round"/>
             <line id="ebrR" x1="640" y1="150" x2="640" y2="166" stroke="#000" stroke-width="3" stroke-linecap="round"/>
 
-            <!-- Clickable E box -->
             <g class="svgBtn" id="btnE">
               <rect x="675" y="68" rx="12" ry="12" width="190" height="44" fill="#fff" stroke="#000" stroke-width="2"/>
               <text id="txtE" x="690" y="97" fill="#000" font-size="20" font-weight="900">E = ___ m</text>
             </g>
 
-            <!-- Clickable e box -->
             <g class="svgBtn" id="btnEoff">
               <rect x="675" y="126" rx="12" ry="12" width="190" height="44" fill="#fff" stroke="#000" stroke-width="2"/>
               <text id="txte" x="690" y="155" fill="#000" font-size="20" font-weight="900">e = 0.0 m</text>
             </g>
 
-            <!-- S output -->
             <text x="40" y="198" fill="#444" font-size="16">Start reading</text>
             <text id="txtS" x="160" y="200" fill="#000" font-size="34" font-weight="900">S = —</text>
-
             <text x="40" y="70" fill="#444" font-size="14">Dot ● is the cable end. It is e meters before the full mark E.</text>
-
-            <!-- e label -->
             <text id="txteLabel" x="520" y="186" fill="#000" font-size="16" font-weight="900">e</text>
           </svg>
 
@@ -235,6 +270,21 @@
 
         <div style="flex:1; min-width:240px;">
           <p class="title">Job Inputs</p>
+
+          <div class="row" style="gap:10px; margin-top:10px;">
+            <div>
+              <label>SO Number</label>
+              <input id="soNumber" type="text" placeholder="Scan or type SO..." />
+            </div>
+            <div style="max-width:200px;">
+              <label>&nbsp;</label>
+              <button class="btn" type="button" id="btnScanSO">Scan SO</button>
+            </div>
+            <div style="max-width:200px;">
+              <label>&nbsp;</label>
+              <button class="btn" type="button" id="btnHistory">History</button>
+            </div>
+          </div>
 
           <div class="row" style="gap:10px;">
             <div>
@@ -310,7 +360,6 @@
       </div>
     </div>
 
-    <!-- OUTPUT -->
     <div class="card">
       <p class="title">Cuts Output (Cut 1 → Cut n)</p>
 
@@ -325,6 +374,18 @@
 
         <button class="btn" type="button" id="btnPreview">Preview print</button>
         <button class="btn" type="button" id="btnPrint">Print now</button>
+
+        <label class="pill" style="cursor:pointer;">
+          <input id="opMode" type="checkbox" style="width:auto; transform:scale(1.2);" />
+          <span>Operator mode (3 cuts)</span>
+        </label>
+
+        <button class="btn" type="button" id="btnResetDone">Reset done</button>
+
+        <div class="pill">
+          <span class="hint">Done</span>
+          <span id="doneCount" class="bigNumber" style="font-size:18px;">0/0</span>
+        </div>
       </div>
 
       <div id="printArea" style="display:none;"></div>
@@ -333,7 +394,6 @@
 
   </div>
 
-  <!-- e picker modal -->
   <div class="modalBackdrop" id="eModal">
     <div class="modal" role="dialog" aria-modal="true" aria-label="Offset picker">
       <h3>Select offset <span class="badge">e</span> (0.0 to 0.9)</h3>
@@ -344,8 +404,23 @@
     </div>
   </div>
 
+  <div class="modalBackdrop" id="historyModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="History">
+      <h3>Job History</h3>
+      <div class="row" style="gap:10px;">
+        <div>
+          <label>Search SO Number</label>
+          <input id="historySearch" type="text" placeholder="Type SO..." />
+        </div>
+      </div>
+      <div id="historyList" class="historyList"></div>
+      <div class="modalActions">
+        <button class="btn" type="button" id="btnHistoryClose">Close</button>
+      </div>
+    </div>
+  </div>
+
 <script>
-  // ---------- Helpers ----------
   function round1(x){ return Math.round(x * 10) / 10; }
   function clamp(v, lo, hi){ return Math.min(hi, Math.max(lo, v)); }
   function isWholeMeter(x){ return Math.abs(x - Math.round(x)) < 1e-9; }
@@ -353,6 +428,10 @@
   function nowStamp(){
     const d = new Date();
     return `${pad2(d.getDate())}-${pad2(d.getMonth()+1)}-${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+  function isoToday(){
+    const d = new Date();
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
   }
   function escapeHtml(str){
     return String(str)
@@ -363,15 +442,22 @@
       .replaceAll("'","&#39;");
   }
 
-  const VERSION = "v1.0";
+  const VERSION = "app-v1.0";
+  const DONE_KEY = "cableCutDone_app_v1";
+  const JOBS_KEY = "cableCutJobs_app_v1";
+  const CURRENT_JOB_KEY = "cableCutCurrentJob_app_v1";
 
-  // ---------- State ----------
   const state = {
-    E: null,   // integer full mark
-    e: 0.0     // 0.0..0.9
+    E: null,
+    e: 0.0
   };
 
-  // ---------- Elements ----------
+  let op = {
+    enabled: false,
+    page: 0,
+    done: {}
+  };
+
   const txtE = document.getElementById('txtE');
   const txte = document.getElementById('txte');
   const txtS = document.getElementById('txtS');
@@ -383,6 +469,10 @@
   const ebrL = document.getElementById('ebrL');
   const ebrR = document.getElementById('ebrR');
 
+  const soNumber = document.getElementById('soNumber');
+  const btnScanSO = document.getElementById('btnScanSO');
+  const btnHistory = document.getElementById('btnHistory');
+
   const inY = document.getElementById('inY');
   const inN = document.getElementById('inN');
   const inDir = document.getElementById('inDir');
@@ -393,12 +483,17 @@
   const insufficientText = document.getElementById('insufficientText');
 
   const cutsList = document.getElementById('cutsList');
+  const printArea = document.getElementById('printArea');
 
   const btnClear = document.getElementById('btnClear');
   const btnGo = document.getElementById('btnGo');
   const btnPreview = document.getElementById('btnPreview');
   const btnPrint = document.getElementById('btnPrint');
+  const btnResetDone = document.getElementById('btnResetDone');
   const jumpCut = document.getElementById('jumpCut');
+  const doneCount = document.getElementById('doneCount');
+  const opMode = document.getElementById('opMode');
+  const printMode = document.getElementById('printMode');
 
   const showJob = document.getElementById('showJob');
   const jobStrip = document.getElementById('jobStrip');
@@ -408,23 +503,224 @@
   const jobCable = document.getElementById('jobCable');
   const jobTrack = document.getElementById('jobTrack');
 
-  const printMode = document.getElementById('printMode');
-  const printArea = document.getElementById('printArea');
-
-  // e modal
   const eModal = document.getElementById('eModal');
   const eGrid = document.getElementById('eGrid');
   const btnECancel = document.getElementById('btnECancel');
 
-  // ---------- Init job date ----------
-  (function initDate(){
-    const d = new Date();
-    const iso = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-    jobDate.value = iso;
-  })();
+  const historyModal = document.getElementById('historyModal');
+  const historyList = document.getElementById('historyList');
+  const historySearch = document.getElementById('historySearch');
+  const btnHistoryClose = document.getElementById('btnHistoryClose');
 
-  // ---------- Build e picker ----------
-  (function buildEPicker(){
+  jobDate.value = isoToday();
+
+  function loadDone(){
+    try{
+      const raw = localStorage.getItem(DONE_KEY);
+      op.done = raw ? JSON.parse(raw) : {};
+    }catch(e){
+      op.done = {};
+    }
+  }
+  function saveDone(){
+    localStorage.setItem(DONE_KEY, JSON.stringify(op.done));
+  }
+  function clearDone(){
+    op.done = {};
+    saveDone();
+  }
+  function markDone(k, v){
+    if(v) op.done[k] = true;
+    else delete op.done[k];
+    saveDone();
+  }
+  function getDoneCount(totalCuts){
+    let c = 0;
+    for(const k in op.done){
+      if(op.done[k]) c++;
+    }
+    return `${c}/${totalCuts || 0}`;
+  }
+
+  function loadJobs(){
+    try{
+      const raw = localStorage.getItem(JOBS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){
+      return [];
+    }
+  }
+  function saveJobs(arr){
+    localStorage.setItem(JOBS_KEY, JSON.stringify(arr));
+  }
+  function setCurrentJobSO(so){
+    localStorage.setItem(CURRENT_JOB_KEY, so || "");
+  }
+  function getCurrentJobSO(){
+    return localStorage.getItem(CURRENT_JOB_KEY) || "";
+  }
+  function normalizeSO(v){
+    return String(v || "").trim().toUpperCase();
+  }
+
+  function currentPayload(){
+    const data = compute();
+    if(data.issues.length) return null;
+
+    const res = buildCutData();
+    if(!res.ok) return null;
+
+    const totalCuts = res.cuts.length;
+    const doneTotal = Object.keys(op.done).filter(k => op.done[k]).length;
+    const status = totalCuts > 0 && doneTotal >= totalCuts ? "completed" : "active";
+
+    return {
+      so_number: normalizeSO(soNumber.value),
+      operator_name: jobOperator.value.trim(),
+      cable_code: jobCable.value.trim(),
+      tracking_number: jobTrack.value.trim(),
+      job_id: jobId.value.trim(),
+      job_date: jobDate.value,
+      inputs: {
+        E: data.E,
+        e: data.e,
+        y: data.y,
+        n: data.n,
+        dir: data.dir
+      },
+      done_map: op.done,
+      status,
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  function saveCurrentJob(silent = true){
+    const payload = currentPayload();
+    if(!payload) return;
+    if(!payload.so_number) return;
+
+    const jobs = loadJobs();
+    const idx = jobs.findIndex(j => normalizeSO(j.so_number) === payload.so_number);
+
+    if(idx >= 0){
+      payload.created_at = jobs[idx].created_at || new Date().toISOString();
+      jobs[idx] = { ...jobs[idx], ...payload };
+    }else{
+      payload.created_at = new Date().toISOString();
+      jobs.unshift(payload);
+    }
+    saveJobs(jobs);
+    setCurrentJobSO(payload.so_number);
+
+    if(!silent){
+      alert(`Job saved for SO ${payload.so_number}`);
+    }
+  }
+
+  function loadJobBySO(so){
+    const jobs = loadJobs();
+    const item = jobs.find(j => normalizeSO(j.so_number) === normalizeSO(so));
+    if(!item) return false;
+
+    soNumber.value = item.so_number || "";
+    jobOperator.value = item.operator_name || "";
+    jobCable.value = item.cable_code || "";
+    jobTrack.value = item.tracking_number || "";
+    jobId.value = item.job_id || "";
+    jobDate.value = item.job_date || isoToday();
+
+    if(item.operator_name || item.cable_code || item.tracking_number || item.job_id){
+      showJob.checked = true;
+      jobStrip.style.display = "flex";
+    }
+
+    if(item.inputs){
+      state.E = item.inputs.E ?? null;
+      state.e = Number(item.inputs.e ?? 0.0);
+      inY.value = item.inputs.y ?? "";
+      inN.value = item.inputs.n ?? "";
+      inDir.value = item.inputs.dir ?? "asc";
+    }
+
+    op.done = item.done_map || {};
+    saveDone();
+    setCurrentJobSO(item.so_number || "");
+    op.page = 0;
+    renderAll();
+    return true;
+  }
+
+  function deleteJobBySO(so){
+    const jobs = loadJobs().filter(j => normalizeSO(j.so_number) !== normalizeSO(so));
+    saveJobs(jobs);
+    if(getCurrentJobSO() === normalizeSO(so)){
+      setCurrentJobSO("");
+    }
+  }
+
+  function renderHistoryList(){
+    const term = normalizeSO(historySearch.value);
+    const jobs = loadJobs()
+      .sort((a,b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
+      .filter(j => !term || normalizeSO(j.so_number).includes(term));
+
+    if(!jobs.length){
+      historyList.innerHTML = `<div class="historyItem"><div class="historyMeta">No saved jobs found.</div></div>`;
+      return;
+    }
+
+    historyList.innerHTML = jobs.map(j => {
+      const doneTotal = Object.keys(j.done_map || {}).filter(k => j.done_map[k]).length;
+      const totalCuts = Number(j.inputs?.n || 0);
+      return `
+        <div class="historyItem">
+          <div class="historyTop">
+            <div>
+              <div class="historySo">${escapeHtml(j.so_number)}</div>
+              <div class="historyMeta">
+                Status: <strong>${escapeHtml(j.status || "active")}</strong> |
+                Done: <strong>${doneTotal}/${totalCuts}</strong> |
+                Updated: <strong>${escapeHtml((j.updated_at || j.created_at || "").replace("T"," ").slice(0,16))}</strong>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn" type="button" data-load="${escapeHtml(j.so_number)}">Load</button>
+              <button class="btn" type="button" data-delete="${escapeHtml(j.so_number)}">Delete</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    historyList.querySelectorAll("[data-load]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const so = btn.getAttribute("data-load");
+        if(loadJobBySO(so)){
+          closeHistoryModal();
+        }
+      });
+    });
+
+    historyList.querySelectorAll("[data-delete]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const so = btn.getAttribute("data-delete");
+        if(confirm(`Delete saved job ${so}?`)){
+          deleteJobBySO(so);
+          renderHistoryList();
+        }
+      });
+    });
+  }
+
+  function openHistoryModal(){
+    renderHistoryList();
+    historyModal.style.display = "flex";
+  }
+  function closeHistoryModal(){
+    historyModal.style.display = "none";
+  }
+
+  function buildEPicker(){
     const vals = [];
     for(let i=0;i<=9;i++) vals.push((i/10).toFixed(1));
     eGrid.innerHTML = vals.map(v => `<button class="pickBtn" type="button" data-e="${v}">${v}</button>`).join('');
@@ -436,14 +732,20 @@
       closeEModal();
       renderAll();
     });
-  })();
+  }
+  buildEPicker();
 
   function openEModal(){ eModal.style.display = "flex"; }
   function closeEModal(){ eModal.style.display = "none"; }
+
   btnECancel.addEventListener('click', closeEModal);
   eModal.addEventListener('click', (ev) => { if(ev.target === eModal) closeEModal(); });
 
-  // ---------- Clickable SVG ----------
+  btnHistory.addEventListener("click", openHistoryModal);
+  btnHistoryClose.addEventListener("click", closeHistoryModal);
+  historyModal.addEventListener("click", (ev) => { if(ev.target === historyModal) closeHistoryModal(); });
+  historySearch.addEventListener("input", renderHistoryList);
+
   document.getElementById('btnE').addEventListener('click', () => editE());
   document.getElementById('btnEoff').addEventListener('click', () => openEModal());
 
@@ -458,16 +760,22 @@
     renderAll();
   }
 
-  // ---------- Job details toggle ----------
   showJob.addEventListener('change', () => {
     jobStrip.style.display = showJob.checked ? "flex" : "none";
   });
 
-  // ---------- Clear all ----------
+  btnScanSO.addEventListener("click", () => {
+    const raw = prompt("For now, paste or type the scanned SO number here:", soNumber.value || "");
+    if(raw === null) return;
+    soNumber.value = normalizeSO(raw);
+    renderAll();
+  });
+
   btnClear.addEventListener('click', () => {
     state.E = null;
     state.e = 0.0;
 
+    soNumber.value = "";
     inY.value = "";
     inN.value = "";
     inDir.value = "asc";
@@ -478,20 +786,24 @@
     jobId.value = "";
     jobCable.value = "";
     jobTrack.value = "";
+    jobDate.value = isoToday();
 
     showJob.checked = false;
     jobStrip.style.display = "none";
+
+    clearDone();
+    setCurrentJobSO("");
+    op.page = 0;
 
     renderAll();
     alert("Cleared. Enter new job details.");
   });
 
-  // ---------- Inputs update ----------
-  inY.addEventListener('input', renderAll);
-  inN.addEventListener('input', renderAll);
-  inDir.addEventListener('change', renderAll);
+  [soNumber, inY, inN, inDir, jobOperator, jobId, jobCable, jobTrack, jobDate].forEach(el => {
+    el.addEventListener('input', renderAll);
+    el.addEventListener('change', renderAll);
+  });
 
-  // Search input: never allow negative or 0
   jumpCut.addEventListener('input', () => {
     if(jumpCut.value === "") return;
     const v = Math.trunc(Number(jumpCut.value));
@@ -499,11 +811,10 @@
     else jumpCut.value = String(v);
   });
 
-  // Keyboard flow: Enter moves through y -> n -> dir -> jump
   function handleEnterFlow(ev){
     if(ev.key !== "Enter") return;
     ev.preventDefault();
-    const order = [inY, inN, inDir, jumpCut];
+    const order = [soNumber, inY, inN, inDir, jumpCut];
     const idx = order.indexOf(ev.target);
     if(idx >= 0 && idx < order.length-1){
       order[idx+1].focus();
@@ -512,9 +823,8 @@
       document.querySelector('.cuts')?.scrollTo({top:0, behavior:"smooth"});
     }
   }
-  [inY, inN, inDir, jumpCut].forEach(el => el.addEventListener('keydown', handleEnterFlow));
+  [soNumber, inY, inN, inDir, jumpCut].forEach(el => el.addEventListener('keydown', handleEnterFlow));
 
-  // Alt shortcuts: Alt+E edit E, Alt+O open offset picker
   window.addEventListener('keydown', (ev) => {
     if(!ev.altKey) return;
     const k = ev.key.toLowerCase();
@@ -522,9 +832,21 @@
     if(k === 'o'){ ev.preventDefault(); openEModal(); }
   });
 
-  // ---------- Computation ----------
+  opMode.addEventListener("change", () => {
+    op.enabled = opMode.checked;
+    op.page = 0;
+    renderAll();
+  });
+
+  btnResetDone.addEventListener("click", () => {
+    if(confirm("Reset all done marks for this job?")){
+      clearDone();
+      renderAll();
+    }
+  });
+
   function compute(){
-    const E = state.E; // integer or null
+    const E = state.E;
     const e = clamp(round1(state.e), 0, 0.9);
     const S = (E === null) ? null : round1(E - e);
 
@@ -534,9 +856,9 @@
     const y = Number.isFinite(yRaw) ? round1(yRaw) : NaN;
     const n = Number.isFinite(nRaw) ? Math.trunc(nRaw) : NaN;
 
-    const dir = inDir.value; // asc|desc
-
+    const dir = inDir.value;
     const issues = [];
+
     if(E === null) issues.push("Enter E (full meter mark) in the drawing.");
     if(!Number.isFinite(y) || y <= 0) issues.push("Enter a valid total length (y).");
     if(!Number.isFinite(n) || n < 1) issues.push("Enter a valid number of cuts (n).");
@@ -571,16 +893,12 @@
     txteLabel.setAttribute('x', mid - 6);
   }
 
-  // Solid triangle pointer marker (▼) + vertical cut line
   function makeMiniBar(A, B, fromA, isExact){
     const w = 520, h = 72, pad = 18;
     const x0 = pad, x1 = w - pad;
     const yLine = 44;
-
     const pos = isExact ? 0 : clamp(fromA, 0, 1);
     const mx = x0 + (x1 - x0) * pos;
-
-    // triangle pointer above the line (solid)
     const triTopY = yLine - 22;
     const triBaseY = yLine - 10;
     const triHalfW = 8;
@@ -590,11 +908,9 @@
       <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" aria-label="1 meter segment">
         <text x="${x0}" y="18" fill="#444" font-size="14">${A}m</text>
         <text x="${x1-34}" y="18" fill="#444" font-size="14">${B}m</text>
-
         <line x1="${x0}" y1="${yLine}" x2="${x1}" y2="${yLine}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
         <line x1="${x0}" y1="${yLine-14}" x2="${x0}" y2="${yLine+14}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
         <line x1="${x1}" y1="${yLine-14}" x2="${x1}" y2="${yLine+14}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
-
         <polygon points="${triPoints}" fill="#000"/>
         <line x1="${mx}" y1="${yLine-16}" x2="${mx}" y2="${yLine+16}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
       </svg>
@@ -613,7 +929,6 @@
       const Dk = round1(k * data.x);
       const R = round1(data.dir === "asc" ? (data.S + Dk) : (data.S - Dk));
 
-      // Stop on negative when descending (no negative cuts generated)
       if(data.dir === "desc" && R < 0){
         insufficient = true;
         enoughCuts = k - 1;
@@ -658,14 +973,41 @@
     insufficientBanner.style.display = "none";
     insufficientText.textContent = "";
 
-    if(!res.ok) return;
+    if(!res.ok){
+      doneCount.textContent = "0/0";
+      return;
+    }
 
     const { cuts, insufficient, enoughCuts, needFrom, needTo } = res;
+    doneCount.textContent = getDoneCount(cuts.length);
+
+    if(insufficient){
+      insufficientBanner.style.display = "block";
+      insufficientText.textContent = `Reel 1 only enough for Cut 1 → Cut ${enoughCuts}. Need another cable for Cut ${needFrom} → Cut ${needTo}.`;
+    }
+
+    let visibleCuts = cuts;
+    if(op.enabled){
+      const start = op.page * 3;
+      const end = start + 3;
+      visibleCuts = cuts.slice(start, end);
+    }
 
     const frag = document.createDocumentFragment();
-    cuts.forEach(c => {
+
+    visibleCuts.forEach(c => {
       const card = document.createElement('div');
       card.className = "cutCard";
+
+      const isDone = !!op.done[c.k];
+      if(isDone) card.classList.add("done");
+
+      const doneHtml = `
+        <label class="doneToggle">
+          <input type="checkbox" ${isDone ? "checked" : ""} data-cut="${c.k}" />
+          Done
+        </label>
+      `;
 
       if(c.exact){
         card.innerHTML = `
@@ -675,6 +1017,7 @@
               <div class="cutR">${c.R} m</div>
               <div class="cutMeta"><strong>Exactly at ${c.betweenA} m</strong></div>
             </div>
+            <div>${doneHtml}</div>
           </div>
           <div class="mini">${makeMiniBar(c.betweenA, c.betweenB, 0, true)}</div>
         `;
@@ -687,6 +1030,7 @@
               <div class="cutMeta">Between <strong>${c.betweenA} m</strong> and <strong>${c.betweenB} m</strong></div>
               <div class="cutMeta"><strong>${c.fromA.toFixed(1)} m</strong> from ${c.betweenA} &nbsp; | &nbsp; <strong>${c.fromB.toFixed(1)} m</strong> from ${c.betweenB}</div>
             </div>
+            <div>${doneHtml}</div>
           </div>
           <div class="mini">${makeMiniBar(c.betweenA, c.betweenB, c.fromA, false)}</div>
         `;
@@ -694,15 +1038,32 @@
 
       frag.appendChild(card);
     });
+
     cutsList.appendChild(frag);
 
-    if(insufficient){
-      insufficientBanner.style.display = "block";
-      insufficientText.textContent = `Reel 1 only enough for Cut 1 → Cut ${enoughCuts}. Need another cable for Cut ${needFrom} → Cut ${needTo}.`;
-    }
+    cutsList.querySelectorAll('input[type="checkbox"][data-cut]').forEach(chk => {
+      chk.addEventListener("change", (ev) => {
+        const k = Number(ev.target.getAttribute("data-cut"));
+        markDone(k, ev.target.checked);
+
+        if(op.enabled){
+          const start = op.page * 3 + 1;
+          const end = Math.min(start + 2, cuts.length);
+          let allDone = true;
+          for(let ck = start; ck <= end; ck++){
+            if(!op.done[ck]) { allDone = false; break; }
+          }
+          if(allDone && (op.page + 1) * 3 < cuts.length){
+            op.page++;
+          }
+        }
+
+        saveCurrentJob(true);
+        renderAll();
+      });
+    });
   }
 
-  // ---------- Jump to cut ----------
   function jumpToCutFn(){
     const num = Math.trunc(Number(jumpCut.value));
     if(!Number.isFinite(num) || num < 1) return;
@@ -715,11 +1076,22 @@
       setTimeout(() => { card.style.borderColor = old || "#000"; }, 900);
     }
   }
-  btnGo.addEventListener('click', jumpToCutFn);
 
-  // ---------- Print header helpers ----------
+  btnGo.addEventListener('click', () => {
+    if(op.enabled){
+      const res = buildCutData();
+      if(!res.ok) return;
+      const maxPage = Math.max(0, Math.ceil(res.cuts.length / 3) - 1);
+      op.page = Math.min(maxPage, op.page + 1);
+      renderAll();
+    } else {
+      jumpToCutFn();
+    }
+  });
+
   function getJobFields(){
     const fields = [];
+    if(soNumber.value.trim()) fields.push({k:"SO", v: soNumber.value.trim()});
     if(jobDate.value) fields.push({k:"Date", v: jobDate.value});
     if(jobOperator.value.trim()) fields.push({k:"Operator", v: jobOperator.value.trim()});
     if(jobId.value.trim()) fields.push({k:"Job ID", v: jobId.value.trim()});
@@ -729,8 +1101,6 @@
   }
 
   function buildPrintStartSvg(E, e, S){
-    // Small print SVG showing the offset/start-point drawing
-    // Visual-only: E mark fixed, dot shifts based on e.
     const E_X = 440;
     const maxSpanPx = 150;
     const dotX = E_X - (e/0.9) * maxSpanPx;
@@ -744,11 +1114,9 @@
         <svg viewBox="0 0 620 120" width="100%" height="120" style="display:block;">
           <text x="10" y="18" fill="#444" font-size="12">END</text>
           <text x="520" y="18" fill="#444" font-size="12">toward spool →</text>
-
           <line x1="${E_X}" y1="36" x2="${E_X}" y2="94" stroke="#000" stroke-width="5" stroke-linecap="round"/>
           <circle cx="${dotX}" cy="65" r="9" fill="#000"/>
           <line x1="${dotX}" y1="65" x2="590" y2="65" stroke="#000" stroke-width="5" stroke-linecap="round"/>
-
           <line x1="${dotX}" y1="102" x2="${E_X}" y2="102" stroke="#000" stroke-width="2"/>
           <line x1="${dotX}" y1="96" x2="${dotX}" y2="108" stroke="#000" stroke-width="2"/>
           <line x1="${E_X}" y1="96" x2="${E_X}" y2="108" stroke="#000" stroke-width="2"/>
@@ -759,7 +1127,7 @@
   }
 
   function buildPrintHTML(res){
-    const mode = printMode.value; // compact|detailed
+    const mode = printMode.value;
     const { data, cuts, insufficient, enoughCuts, needFrom, needTo } = res;
 
     const dirText = data.dir === "asc"
@@ -772,7 +1140,7 @@
       : "";
 
     const headerHTML = `
-      <p class="printTitle">Cable Cut Plan</p>
+      <p class="printTitle">Cable Cut Helper App</p>
       ${jobLine ? `<p class="printMeta">${jobLine}</p>` : ``}
       ${buildPrintStartSvg(data.E, data.e, data.S)}
       <p class="printMeta">
@@ -841,7 +1209,6 @@
     return headerHTML + bodyHTML + footerHTML;
   }
 
-  // Preview print / Print now (both open browser print dialog)
   function previewOrPrint(){
     const res = buildCutData();
     if(!res.ok){
@@ -865,7 +1232,6 @@
   btnPreview.addEventListener('click', previewOrPrint);
   btnPrint.addEventListener('click', previewOrPrint);
 
-  // ---------- Render all ----------
   function renderAll(){
     const data = compute();
     renderStartDrawing(data.E, data.e, data.S);
@@ -876,6 +1242,8 @@
       outX.textContent = "x = —";
       cutsList.innerHTML = "";
       insufficientBanner.style.display = "none";
+      doneCount.textContent = "0/0";
+      btnGo.textContent = op.enabled ? "Next 3" : "Go";
       return;
     }
 
@@ -884,10 +1252,22 @@
 
     const res = buildCutData();
     renderCutsUI(res);
+
+    btnGo.textContent = op.enabled ? "Next 3" : "Go";
+
+    if(soNumber.value.trim()){
+      saveCurrentJob(true);
+    }
   }
 
-  // Initial render
-  renderAll();
+  loadDone();
+
+  const resumeSO = getCurrentJobSO();
+  if(resumeSO){
+    loadJobBySO(resumeSO);
+  } else {
+    renderAll();
+  }
 </script>
 </body>
 </html>
