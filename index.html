@@ -526,27 +526,30 @@
   function compute(){
     const E = state.E; // integer or null
     const e = clamp(round1(state.e), 0, 0.9);
-    const S = (E === null) ? null : round1(E - e);
-
+  
     const yRaw = Number(inY.value);
     const nRaw = Number(inN.value);
-
+  
     const y = Number.isFinite(yRaw) ? round1(yRaw) : NaN;
     const n = Number.isFinite(nRaw) ? Math.trunc(nRaw) : NaN;
-
+  
     const dir = inDir.value; // asc|desc
-
+  
+    const S = (E === null)
+      ? null
+      : round1(dir === "asc" ? (E - e) : (E + e));
+  
     const issues = [];
     if(E === null) issues.push("Enter E (full meter mark) in the drawing.");
     if(!Number.isFinite(y) || y <= 0) issues.push("Enter a valid total length (y).");
     if(!Number.isFinite(n) || n < 1) issues.push("Enter a valid number of cuts (n).");
-
+  
     let x = NaN;
     if(issues.length === 0){
       x = round1(y / n);
       if(x < 0.1) issues.push("Cut length is below measurable limit (0.1 m).");
     }
-
+  
     return {E,e,S,y,n,dir,x,issues};
   }
 
@@ -890,4 +893,5 @@
   renderAll();
 </script>
 </body>
+
 </html>
