@@ -575,35 +575,41 @@
   }
 
   // Solid triangle pointer marker (▼) + vertical cut line
-  function makeMiniBar(A, B, fromA, isExact){
+  function makeMiniBar(A, B, fromA, isExact, dir){
     const w = 520, h = 72, pad = 18;
     const x0 = pad, x1 = w - pad;
     const yLine = 44;
-
-    const pos = isExact ? 0 : clamp(fromA, 0, 1);
+  
+    // asc: left=A, right=B
+    // desc: left=B, right=A
+    const leftLabel = dir === "desc" ? B : A;
+    const rightLabel = dir === "desc" ? A : B;
+  
+    // Pointer position:
+    // asc  -> fromA measured from left
+    // desc -> fromB measured from left = 1 - fromA
+    const pos = isExact ? 0 : clamp(dir === "desc" ? (1 - fromA) : fromA, 0, 1);
     const mx = x0 + (x1 - x0) * pos;
-
-    // triangle pointer above the line (solid)
+  
     const triTopY = yLine - 22;
     const triBaseY = yLine - 10;
     const triHalfW = 8;
     const triPoints = `${mx},${triBaseY} ${mx-triHalfW},${triTopY} ${mx+triHalfW},${triTopY}`;
-
+  
     return `
       <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" aria-label="1 meter segment">
-        <text x="${x0}" y="18" fill="#444" font-size="14">${A}m</text>
-        <text x="${x1-34}" y="18" fill="#444" font-size="14">${B}m</text>
-
+        <text x="${x0}" y="18" fill="#444" font-size="14">${leftLabel}m</text>
+        <text x="${x1-34}" y="18" fill="#444" font-size="14">${rightLabel}m</text>
+  
         <line x1="${x0}" y1="${yLine}" x2="${x1}" y2="${yLine}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
         <line x1="${x0}" y1="${yLine-14}" x2="${x0}" y2="${yLine+14}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
         <line x1="${x1}" y1="${yLine-14}" x2="${x1}" y2="${yLine+14}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
-
+  
         <polygon points="${triPoints}" fill="#000"/>
         <line x1="${mx}" y1="${yLine-16}" x2="${mx}" y2="${yLine+16}" stroke="#000" stroke-width="6" stroke-linecap="round"/>
       </svg>
     `;
   }
-
   function buildCutData(){
     const data = compute();
     if(data.issues.length) return { ok:false, msg:data.issues[0], data };
@@ -660,16 +666,22 @@
     cutsList.innerHTML = "";
     insufficientBanner.style.display = "none";
     insufficientText.textContent = "";
-
+  
     if(!res.ok) return;
-
-    const { cuts, insufficient, enoughCuts, needFrom, needTo } = res;
-
+  
+    const { cuts, insufficient, enoughCuts, needFrom, needTo, data } = res;
+    const dir = data.dir;
+  
     const frag = document.createDocumentFragment();
     cuts.forEach(c => {
       const card = document.createElement('div');
       card.className = "cutCard";
-
+  
+      const leftMark = dir === "desc" ? c.betweenB : c.betweenA;
+      const rightMark = dir === "desc" ? c.betweenA : c.betweenB;
+      const leftDist = dir === "desc" ? c.fromB : c.fromA;
+      const rightDist = dir === "desc" ? c.fromA : c.fromB;
+  
       if(c.exact){
         card.innerHTML = `
           <div class="cutTop">
@@ -679,7 +691,7 @@
               <div class="cutMeta"><strong>Exactly at ${c.betweenA} m</strong></div>
             </div>
           </div>
-          <div class="mini">${makeMiniBar(c.betweenA, c.betweenB, 0, true)}</div>
+          <div class="mini">${makeMiniBar(c.betweenA, c.betweenB, c.fromA, true, dir)}</div>
         `;
       } else {
         card.innerHTML = `
@@ -687,24 +699,24 @@
             <div>
               <div class="cutNo">CUT ${c.k}</div>
               <div class="cutR">${c.R} m</div>
-              <div class="cutMeta">Between <strong>${c.betweenA} m</strong> and <strong>${c.betweenB} m</strong></div>
-              <div class="cutMeta"><strong>${c.fromA.toFixed(1)} m</strong> from ${c.betweenA} &nbsp; | &nbsp; <strong>${c.fromB.toFixed(1)} m</strong> from ${c.betweenB}</div>
+              <div class="cutMeta">Between <strong>${leftMark} m</strong> and <strong>${rightMark} m</strong></div>
+              <div class="cutMeta"><strong>${leftDist.toFixed(1)} m</strong> from ${leftMark} &nbsp; | &nbsp; <strong>${rightDist.toFixed(1)} m</strong> from ${rightMark}</div>
             </div>
           </div>
-          <div class="mini">${makeMiniBar(c.betweenA, c.betweenB, c.fromA, false)}</div>
+          <div class="mini">${makeMiniBar(c.betweenA, c.betweenB, c.fromA, false, dir)}</div>
         `;
       }
-
+  
       frag.appendChild(card);
     });
     cutsList.appendChild(frag);
-
+  
     if(insufficient){
       insufficientBanner.style.display = "block";
       insufficientText.textContent = `Reel 1 only enough for Cut 1 → Cut ${enoughCuts}. Need another cable for Cut ${needFrom} → Cut ${needTo}.`;
     }
   }
-
+  
   // ---------- Jump to cut ----------
   function jumpToCutFn(){
     const num = Math.trunc(Number(jumpCut.value));
@@ -802,31 +814,44 @@
             </tr>
           </thead>
           <tbody>
-            ${cuts.map(c => `
-              <tr>
-                <td>${c.k}</td>
-                <td>${c.R} m</td>
-                <td>${c.betweenA} m ↔ ${c.betweenB} m</td>
-                <td>${c.fromA.toFixed(1)} m from ${c.betweenA}</td>
-                <td>${c.fromB.toFixed(1)} m from ${c.betweenB}</td>
-                <td>${c.exact ? "Exact full mark" : ""}</td>
-              </tr>
-            `).join("")}
+            ${cuts.map(c => {
+                const leftMark = data.dir === "desc" ? c.betweenB : c.betweenA;
+                const rightMark = data.dir === "desc" ? c.betweenA : c.betweenB;
+                const leftDist = data.dir === "desc" ? c.fromB : c.fromA;
+                const rightDist = data.dir === "desc" ? c.fromA : c.fromB;
+              
+                return `
+                  <tr>
+                    <td>${c.k}</td>
+                    <td>${c.R} m</td>
+                    <td>${leftMark} m ↔ ${rightMark} m</td>
+                    <td>${leftDist.toFixed(1)} m from ${leftMark}</td>
+                    <td>${rightDist.toFixed(1)} m from ${rightMark}</td>
+                    <td>${c.exact ? "Exact full mark" : ""}</td>
+                  </tr>
+                `;
+              }).join("")}
           </tbody>
         </table>
       `;
     } else {
       bodyHTML += cuts.map(c => {
-        const mini = `<div class="printMini">${makeMiniBar(c.betweenA, c.betweenB, c.fromA, c.exact)}</div>`;
+        const leftMark = data.dir === "desc" ? c.betweenB : c.betweenA;
+        const rightMark = data.dir === "desc" ? c.betweenA : c.betweenB;
+        const leftDist = data.dir === "desc" ? c.fromB : c.fromA;
+        const rightDist = data.dir === "desc" ? c.fromA : c.fromB;
+      
+        const mini = `<div class="printMini">${makeMiniBar(c.betweenA, c.betweenB, c.fromA, c.exact, data.dir)}</div>`;
+      
         return `
           <div class="printCutCard">
             <div><strong>CUT ${c.k}</strong></div>
             <div style="font-size:14px; font-weight:900; margin-top:2px;">${c.R} m</div>
             ${c.exact
               ? `<div>Exactly at <strong>${c.betweenA} m</strong></div>`
-              : `<div>Between <strong>${c.betweenA} m</strong> and <strong>${c.betweenB} m</strong></div>
-                 <div><strong>${c.fromA.toFixed(1)} m</strong> from ${c.betweenA} &nbsp; | &nbsp;
-                      <strong>${c.fromB.toFixed(1)} m</strong> from ${c.betweenB}</div>`
+              : `<div>Between <strong>${leftMark} m</strong> and <strong>${rightMark} m</strong></div>
+                 <div><strong>${leftDist.toFixed(1)} m</strong> from ${leftMark} &nbsp; | &nbsp;
+                      <strong>${rightDist.toFixed(1)} m</strong> from ${rightMark}</div>`
             }
             ${mini}
           </div>
@@ -895,3 +920,4 @@
 </body>
 
 </html>
+
